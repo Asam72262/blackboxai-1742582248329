@@ -1,0 +1,41 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+# Run linting
+npm run lint
+
+# Run tests
+npm test
+
+# Format code
+npm run format
+
+# Check for forbidden words in code
+if git diff --cached | grep -i "console.log\|debugger\|TODO"; then
+  echo "Error: Found console.log, debugger, or TODO in code"
+  exit 1
+fi
+
+# Check commit message format
+commit_msg=$(cat "$1")
+if ! echo "$commit_msg" | grep -qE "^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)(\(.+\))?: .+"; then
+  echo "Error: Invalid commit message format. Please use conventional commits format."
+  echo "Example: feat(auth): add login functionality"
+  exit 1
+fi
+
+# Check for large files
+max_size_kb=500
+for file in $(git diff --cached --name-only); do
+  size=$(du -k "$file" | cut -f1)
+  if [ "$size" -gt "$max_size_kb" ]; then
+    echo "Error: $file is larger than ${max_size_kb}KB"
+    exit 1
+  fi
+done
+
+# Check for sensitive data
+if git diff --cached | grep -i "password\|secret\|key\|token"; then
+  echo "Warning: Possible sensitive data detected"
+  exit 1
+fi
