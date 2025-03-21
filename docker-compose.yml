@@ -1,0 +1,109 @@
+version: '3.8'
+
+services:
+  # Frontend React Application
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: autocare-client
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - REACT_APP_API_URL=http://localhost:5000/api
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - server
+    networks:
+      - autocare-network
+
+  # Backend Node.js Application
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: autocare-server
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - PORT=5000
+      - MONGODB_URI=mongodb://mongodb:27017/autocare
+      - JWT_SECRET=your_jwt_secret_key_here
+      - JWT_EXPIRE=30d
+      - EMAIL_HOST=smtp.gmail.com
+      - EMAIL_PORT=587
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - autocare-network
+
+  # MongoDB Database
+  mongodb:
+    image: mongo:latest
+    container_name: autocare-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=autocare
+    networks:
+      - autocare-network
+
+  # Redis Cache
+  redis:
+    image: redis:alpine
+    container_name: autocare-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - autocare-network
+
+  # MongoDB Express (Web-based MongoDB admin interface)
+  mongo-express:
+    image: mongo-express
+    container_name: autocare-mongo-express
+    ports:
+      - "8081:8081"
+    environment:
+      - ME_CONFIG_MONGODB_SERVER=mongodb
+      - ME_CONFIG_MONGODB_PORT=27017
+      - ME_CONFIG_BASICAUTH_USERNAME=admin
+      - ME_CONFIG_BASICAUTH_PASSWORD=password
+    depends_on:
+      - mongodb
+    networks:
+      - autocare-network
+
+  # Redis Commander (Web-based Redis admin interface)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: autocare-redis-commander
+    ports:
+      - "8082:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    depends_on:
+      - redis
+    networks:
+      - autocare-network
+
+volumes:
+  mongodb_data:
+  redis_data:
+
+networks:
+  autocare-network:
+    driver: bridge
